@@ -6,7 +6,6 @@ import (
 	"sebsegura/otelambda/internal/api"
 	"sebsegura/otelambda/internal/ddb"
 	"sebsegura/otelambda/internal/models"
-	"sebsegura/otelambda/pkg/logger"
 )
 
 type (
@@ -31,25 +30,29 @@ func NewCreateContactHandler(repo ddb.Repository, api api.Client) *CreateContact
 }
 
 func (h *CreateContact) Handle(ctx context.Context, req Request) (Response, error) {
-	ok := true
-	log := logger.New(ctx)
-	log.WithField("request", req).Info("start")
-
-	id := ulid.Make().String()
 	contact := &models.Contact{
-		ID:        id,
+		ID:        ulid.Make().String(),
 		FirstName: req.Name,
 	}
 	if err := h.repo.Create(ctx, contact); err != nil {
-		log.WithField("cause", err.Error()).Error("error creating new contact")
-		ok = false
+		return Response{}, &CustomError{
+			Code:    _dbError,
+			Cause:   "dynamodb error",
+			Message: "cannot create a new item",
+			Detail:  err.Error(),
+		}
 	}
 
 	if err := h.api.Post(ctx, contact); err != nil {
-		log.WithField("cause", err.Error()).Error("error sending request")
+		return Response{}, &CustomError{
+			Code:    _apiError,
+			Cause:   "API communication",
+			Message: "cannot POST a new request",
+			Detail:  err.Error(),
+		}
 	}
 
 	return Response{
-		Ok: ok,
+		Ok: true,
 	}, nil
 }

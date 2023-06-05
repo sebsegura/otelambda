@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"github.com/aws/aws-lambda-go/lambdacontext"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"io"
@@ -35,12 +36,13 @@ func New(ctx context.Context) *Logger {
 		level = zap.DebugLevel
 	}
 
-	//if ctx != nil {
-	//	ct, _ := lambdacontext.FromContext(ctx)
-	//}
+	var serviceARN string
+	if ctx != nil {
+		ct, _ := lambdacontext.FromContext(ctx)
+		serviceARN = ct.InvokedFunctionArn
+	}
 
 	encoderConfig := zapcore.EncoderConfig{
-		MessageKey:  "message",
 		LevelKey:    "level",
 		TimeKey:     "timestamp",
 		EncodeLevel: zapcore.LowercaseLevelEncoder,
@@ -52,9 +54,12 @@ func New(ctx context.Context) *Logger {
 	core := zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), zapcore.AddSync(_defaultWriter), level)
 	log := zap.New(core)
 	log = log.
-		With(zap.String("service_name", os.Getenv("AWS_LAMBDA_FUNCTION_NAME"))).
-		With(zap.String("service_version", os.Getenv("AWS_LAMBDA_FUNCTION_VERSION"))).
-		With(zap.String("env", cfg.Env))
+		With(zap.String("service.name", os.Getenv("AWS_LAMBDA_FUNCTION_NAME"))).
+		With(zap.String("service.version", os.Getenv("AWS_LAMBDA_FUNCTION_VERSION"))).
+		With(zap.String("service.arn", serviceARN)).
+		With(zap.String("env", cfg.Env)).
+		With(zap.String("trace.id", os.Getenv("_X_AMZN_TRACE_ID"))).
+		With(zap.String("event.flow", os.Getenv("FLOW")))
 
 	return &Logger{
 		log: log,

@@ -12,6 +12,7 @@ import (
 	"sebsegura/otelambda/internal/api"
 	"sebsegura/otelambda/internal/ddb"
 	"sebsegura/otelambda/internal/handler"
+	"sebsegura/otelambda/pkg/middleware"
 )
 
 func main() {
@@ -34,5 +35,5 @@ func main() {
 	client := api.NewAPIClient(os.Getenv("BASE_URL"))
 	h := handler.NewCreateContactHandler(repo, client)
 
-	lambda.Start(otellambda.InstrumentHandler(h.Handle, xrayconfig.WithRecommendedOptions(tp)...))
+	lambda.Start(otellambda.InstrumentHandler(middleware.StartSyncLambda[handler.Request, handler.Response](h.Handle), xrayconfig.WithRecommendedOptions(tp)...))
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda/xrayconfig"
@@ -10,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"sebsegura/otelambda/internal/ddb"
 	"sebsegura/otelambda/internal/handler"
+	"sebsegura/otelambda/pkg/middleware"
 )
 
 func main() {
@@ -31,5 +33,5 @@ func main() {
 	repo := ddb.New(ctx)
 	h := handler.NewUpdateContactHandler(repo)
 
-	lambda.Start(otellambda.InstrumentHandler(h.Handle, xrayconfig.WithRecommendedOptions(tp)...))
+	lambda.Start(otellambda.InstrumentHandler(middleware.StartAsyncLambda[events.SQSEvent](h.Handle), xrayconfig.WithRecommendedOptions(tp)...))
 }

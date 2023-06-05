@@ -42,7 +42,7 @@ func (r *repository) Create(ctx context.Context, contact *models.Contact) error 
 	ctx, span := trace.SpanFromContext(ctx).TracerProvider().Tracer(instr.GetTracerName()).Start(ctx, "PutItem")
 	defer span.End()
 
-	log := logger.New(ctx)
+	log := logger.GetLogger(ctx)
 	item, err := attributevalue.MarshalMap(contact)
 	if err != nil {
 		return err
@@ -69,7 +69,7 @@ func (r *repository) Update(ctx context.Context, contact *models.Contact) error 
 	ctx, span := trace.SpanFromContext(ctx).TracerProvider().Tracer(instr.GetTracerName()).Start(ctx, caller.GetRunTimeCaller(2))
 	defer span.End()
 
-	log := logger.New(ctx)
+	log := logger.GetLogger(ctx)
 
 	upd := expression.Set(expression.Name("lastName"), expression.Value("processed"))
 	expr, err := expression.NewBuilder().WithUpdate(upd).Build()

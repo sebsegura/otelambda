@@ -42,7 +42,7 @@ func (c *client) Post(ctx context.Context, body any) error {
 	ctx, span := trace.SpanFromContext(ctx).TracerProvider().Tracer(instr.GetTracerName()).Start(ctx, "POST "+c.baseURL)
 	defer span.End()
 
-	log := logger.New(ctx)
+	log := logger.GetLogger(ctx)
 	b, _ := json.Marshal(body)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL, strings.NewReader(string(b)))
