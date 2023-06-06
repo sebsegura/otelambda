@@ -9,8 +9,11 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-	repo := ddb.New(ctx)
-	h := handler.NewUpdateContactHandler(repo)
+	var (
+		ctx  = context.Background()
+		repo = ddb.New(ctx)
+		h    = handler.NewUpdateContactHandler(repo)
+	)
+
 	middleware.StartOTELAsyncLambda[events.SQSEvent](ctx, h.Handle)
 }

@@ -8,11 +8,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 	"os"
 	"sebsegura/otelambda/internal/models"
 	"sebsegura/otelambda/internal/session"
-	"sebsegura/otelambda/pkg/caller"
 	"sebsegura/otelambda/pkg/instr"
 	"sebsegura/otelambda/pkg/logger"
 )
@@ -39,7 +38,7 @@ func New(ctx context.Context) Repository {
 }
 
 func (r *repository) Create(ctx context.Context, contact *models.Contact) error {
-	ctx, span := trace.SpanFromContext(ctx).TracerProvider().Tracer(instr.GetTracerName()).Start(ctx, "PutItem")
+	ctx, span := instr.NewSpan(ctx, "CreateContact")
 	defer span.End()
 
 	log := logger.GetLogger(ctx)
@@ -48,31 +47,40 @@ func (r *repository) Create(ctx context.Context, contact *models.Contact) error 
 		return err
 	}
 
+	span.SetAttributes(
+		attribute.String("item.pk", contact.ID))
+
 	_, err = r.ddb.PutItem(ctx, &dynamodb.PutItemInput{
 		Item:                item,
 		TableName:           aws.String(r.tableName),
 		ConditionExpression: aws.String("attribute_not_exists(id)"),
 	})
-	log.WithField("item", contact).Debug("inserted new item")
+	log.
+		WithField("item", contact).
+		WithField("span.id", span.SpanContext().SpanID()).
+		Debug("inserted new item")
 
 	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
 		span.RecordError(err)
 	}
-
-	span.SetAttributes(
-		attribute.String("Table", r.tableName))
 
 	return err
 }
 
 func (r *repository) Update(ctx context.Context, contact *models.Contact) error {
-	ctx, span := trace.SpanFromContext(ctx).TracerProvider().Tracer(instr.GetTracerName()).Start(ctx, caller.GetRunTimeCaller(2))
+	ctx, span := instr.NewSpan(ctx, "UpdateContact")
 	defer span.End()
 
 	log := logger.GetLogger(ctx)
 
 	upd := expression.Set(expression.Name("lastName"), expression.Value("processed"))
 	expr, err := expression.NewBuilder().WithUpdate(upd).Build()
+
+	span.SetAttributes(
+		attribute.String("expression", *expr.Update()),
+		attribute.String("pk", contact.ID))
+
 	_, err = r.ddb.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
@@ -83,9 +91,14 @@ func (r *repository) Update(ctx context.Context, contact *models.Contact) error 
 		ExpressionAttributeValues: expr.Values(),
 	})
 	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
 		span.RecordError(err)
 	}
-	log.WithField("id", contact.ID).Debug("contact updated")
+
+	log.
+		WithField("id", contact.ID).
+		WithField("span.id", span.SpanContext().SpanID()).
+		Debug("contact updated")
 
 	return err
 }
